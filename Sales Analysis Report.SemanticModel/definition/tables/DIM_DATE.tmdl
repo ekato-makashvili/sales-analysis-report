@@ -1,0 +1,102 @@
+table DIM_DATE
+	lineageTag: 1dea21c7-4176-4d26-846f-355d0d0441cb
+
+	column YearMonth
+		dataType: string
+		lineageTag: db2b24bf-0736-4d44-97e2-ff5df95f1bfd
+		summarizeBy: none
+		sourceColumn: YearMonth
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Reporting Period'
+		dataType: dateTime
+		formatString: mmmm yyyy
+		lineageTag: 6e37d59e-2f54-4530-8338-5d0b47dd8523
+		summarizeBy: none
+		sourceColumn: Reporting Period
+
+		variation Variation
+			isDefault
+			relationship: c9e526cf-7186-49b8-a9ce-50bdb50cf264
+			defaultHierarchy: LocalDateTable_702ae916-f818-44ef-ab6b-c92ec07a54c4.'Date Hierarchy'
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+		annotation PBI_FormatHint = {"isDateTimeCustom":true}
+
+	column 'Month Name'
+		dataType: string
+		lineageTag: 73d95af9-3441-45d2-9c8b-1c775d87a7a3
+		summarizeBy: none
+		sourceColumn: Month Name
+
+		annotation SummarizationSetBy = Automatic
+
+	column Year
+		dataType: int64
+		formatString: 0
+		lineageTag: d01d2dd6-c99c-4ee7-a4c6-35666ba508f0
+		summarizeBy: sum
+		sourceColumn: Year
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Month Number'
+		dataType: string
+		lineageTag: 6d5e4731-fad3-4e33-a501-edd23b982cf1
+		summarizeBy: none
+		sourceColumn: Month Number
+
+		annotation SummarizationSetBy = Automatic
+
+	column Quarter
+		dataType: int64
+		formatString: 0
+		lineageTag: c2a4c130-48cd-4b61-add7-2415d28f2037
+		summarizeBy: sum
+		sourceColumn: Quarter
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Year Rank' = RANKX(DIM_DATE,DIM_DATE[Year],,DESC,Dense)
+		dataType: string
+		lineageTag: fe03805c-d2cf-40ae-bbcc-e30cebd76683
+		summarizeBy: none
+
+		changedProperty = DataType
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Month (Short)' = FORMAT(DIM_DATE[Reporting Period], "mmm"&".")
+		lineageTag: 31359331-d983-47e1-ada0-d8820754b408
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	partition DIM_DATE = m
+		mode: import
+		source =
+				let
+				    Source = Excel.Workbook(File.Contents("C:\Users\user\Desktop\Power BI Courses\Modern UX-UI Power BI Report\Financial Sample.xlsx"), null, true),
+				    FACT_SALES_Table = Source{[Item="FACT_SALES",Kind="Table"]}[Data],
+				    #"Changed Type" = Table.TransformColumnTypes(FACT_SALES_Table,{{"Segment", type text}, {"Country", type text}, {"Product", type text}, {"Discount Band", type text}, {"Units Sold", Int64.Type}, {"Manufacturing Price", Int64.Type}, {"Sale Price", Int64.Type}, {"Gross Sales", type number}, {"Discounts", type number}, {" Sales", type number}, {"COGS", type number}, {"Profit", type number}, {"Date", type date}, {"Month Number", Int64.Type}, {"Month Name", type text}, {"Year", Int64.Type}, {"Manager ID", type text}}),
+				    #"Added Custom" = Table.AddColumn(#"Changed Type", "Custom", each Number.ToText([Month Number],"00")),
+				    #"Added Custom1" = Table.AddColumn(#"Added Custom", "YearMonth", each Number.ToText([Year],"0000")&[Custom]),
+				    #"Changed Type1" = Table.TransformColumnTypes(#"Added Custom1",{{"YearMonth", type text}}),
+				    #"Removed Columns" = Table.RemoveColumns(#"Changed Type1",{"Segment", "Country", "Product", "Discount Band", "Units Sold", "Manufacturing Price", "Sale Price", "Gross Sales", "Discounts", "Manager ID", " Sales", "COGS", "Profit", "Month Number"}),
+				    #"Renamed Columns" = Table.RenameColumns(#"Removed Columns",{{"Custom", "Month Number"}}),
+				    #"Reordered Columns" = Table.ReorderColumns(#"Renamed Columns",{"YearMonth", "Date", "Month Name", "Year", "Month Number"}),
+				    #"Sorted Rows" = Table.Sort(#"Reordered Columns",{{"YearMonth", Order.Ascending}}),
+				    #"Added Index" = Table.AddIndexColumn(#"Sorted Rows", "Index", 0, 1, Int64.Type),
+				    #"Removed Duplicates" = Table.Distinct(#"Added Index", {"Date"}),
+				    #"Removed Columns1" = Table.RemoveColumns(#"Removed Duplicates",{"Index"}),
+				    #"Renamed Columns1" = Table.RenameColumns(#"Removed Columns1",{{"Date", "Reporting Period"}}),
+				    #"Inserted Quarter" = Table.AddColumn(#"Renamed Columns1", "Quarter", each Date.QuarterOfYear([Reporting Period]), Int64.Type)
+				in
+				    #"Inserted Quarter"
+
+	annotation PBI_ResultType = Table
+
